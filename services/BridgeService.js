@@ -25,8 +25,8 @@ class BridgeService {
     return await this.bridgeService.createBridgeTransaction(requestData);
   }
 
-  async listenBridgeResult(transactionHash) {
-    return await this.bridgeService.listenBridgeResult(transactionHash);
+  async listenBridgeResult(requestData) {
+    return await this.bridgeService.listenBridgeResult(requestData);
   }
 }
 

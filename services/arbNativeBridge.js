@@ -39,6 +39,16 @@ class ArbNativeBridge {
         stateMutability: "payable",
         type: "function",
       },
+      {
+        inputs: [
+          { internalType: "address", name: "destination", type: "address" },
+        ],
+        name: "withdrawEth",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "nonpayable",
+        type: "function",
+      },
+      "event InboxMessageDelivered(uint256 indexed messageNum, bytes data)",
     ];
     this.arbitrumProvider = new ethers.JsonRpcProvider(networks.arbitrum.rpc);
     this.arbitrumChainId = networks.arbitrum.chainId;
@@ -52,32 +62,47 @@ class ArbNativeBridge {
   async createBridgeTransaction(requestData) {
     try {
       const amount = ethers.parseEther(requestData.srcToken.amount);
-      const toAddress = requestData.userAddress;
-      const l2CallValue = amount;
-      const excessFeeRefundAddress = requestData.userAddress;
-      const callValueRefundAddress = requestData.userAddress;
-      const data = "0x";
 
       const l1gasPrice = await this.ethereumProvider.getFeeData();
       const l2gasPrice = await this.arbitrumProvider.getFeeData();
 
       let unsignedTx = {};
+      let contract;
+      let nonce;
 
       switch (requestData.chain) {
         case this.supportChain.arbitrum:
-          unsignedTx = await contract.depositEth.populateTransaction({
-            value: amount,
-          });
+          contract = new ethers.Contract(
+            requestData.bridgeAddress,
+            this.abi,
+            this.arbitrumProvider
+          );
+          unsignedTx = await contract.withdrawEth.populateTransaction(
+            requestData.userAddress,
+            { value: amount }
+          );
           unsignedTx.chainId = this.arbitrumChainId;
+          unsignedTx.gasPrice = l2gasPrice.maxFeePerGas;
+          unsignedTx.maxFeePerGas = l2gasPrice.maxFeePerGas;
+          unsignedTx.maxPriorityFeePerGas = l2gasPrice.maxPriorityFeePerGas;
+          // 添加必要字段
+          nonce = await this.arbitrumProvider.getTransactionCount(
+            requestData.userAddress
+          );
+          unsignedTx.nonce = nonce;
           break;
         case this.supportChain.ethereum:
-          const contract = new ethers.Contract(
+          contract = new ethers.Contract(
             requestData.bridgeAddress,
             this.abi,
             this.ethereumProvider
           );
+          const toAddress = requestData.userAddress;
+          const l2CallValue = amount;
+          const excessFeeRefundAddress = requestData.userAddress;
+          const callValueRefundAddress = requestData.userAddress;
+          const data = "0x";
           const maxFeePerGas = l2gasPrice.maxFeePerGas;
-
           const calldataSize = data.length / 2; // bytes
           const dataGasPerByte = 16;
           const calldataCost =
@@ -100,7 +125,7 @@ class ArbNativeBridge {
             maxSubmissionCost,
             excessFeeRefundAddress,
             callValueRefundAddress,
-            27514,
+            gasLimit,
             maxFeePerGas,
             data,
             { value: totalValue } // ✅ 注意这里必须覆盖所有部分
@@ -109,16 +134,16 @@ class ArbNativeBridge {
           unsignedTx.gasPrice = l1gasPrice.maxFeePerGas;
           unsignedTx.maxFeePerGas = l1gasPrice.maxFeePerGas;
           unsignedTx.maxPriorityFeePerGas = l1gasPrice.maxPriorityFeePerGas;
+          // 添加必要字段
+          nonce = await this.ethereumProvider.getTransactionCount(
+            requestData.userAddress
+          );
+          unsignedTx.nonce = nonce;
           break;
         default:
           throw new Error(`不支持的链: ${requestData.chain}`);
       }
 
-      // 添加必要字段
-      const nonce = await this.ethereumProvider.getTransactionCount(
-        requestData.userAddress
-      );
-      unsignedTx.nonce = nonce;
       unsignedTx.type = 2; // EIP-1559
       unsignedTx.from = requestData.userAddress;
       // 估算gaslimit 使用l1的gaslimit
@@ -132,19 +157,41 @@ class ArbNativeBridge {
   }
 
   // 监听跨链结果
-  async listenBridgeResult(transactionHash) {
+  async listenBridgeResult(requestData) {
     try {
-      // 暂时返回模拟结果，因为 EthBridger 有问题
-      console.log("监听跨链结果:", transactionHash);
-      return {
-        transactionHash,
-        status: "completed",
-        message: "跨链交易已完成（模拟结果）",
-      };
+      await this.listenRetryableTicket(requestData);
     } catch (error) {
       console.error("❌ 监听跨链结果失败:", error.message);
       throw error;
     }
+  }
+
+  async listenRetryableTicket(requestData) {
+    // 1️⃣ 获取 L1 交易 receipt
+    const receipt = await this.ethereumProvider.getTransactionReceipt(
+      requestData.hash
+    );
+    if (!receipt) {
+      console.log("L1 tx not yet mined.");
+      return;
+    }
+
+    let ticketId = null;
+
+    // 2️⃣ 解析 logs，找到 InboxMessageDelivered 事件
+    const iface = new ethers.Interface(this.abi);
+    for (const log of receipt.logs) {
+      if (
+        log.address.toLowerCase() === requestData.bridgeAddress.toLowerCase()
+      ) {
+        try {
+          const parsed = iface.parseLog(log);
+          const ticketId = parsed.args.messageNum; // 可以对应 Retryable Ticket
+          ticketId = ticketId;
+        } catch (err) {}
+      }
+    }
+    console.log(ticketId);
   }
 
   /**
