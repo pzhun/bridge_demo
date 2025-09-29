@@ -1,0 +1,25 @@
+{
+  "name": "cross-chain-bridge-demo",
+  "version": "1.0.0",
+  "description": "跨链桥演示项目 - 包含外部信息提取功能",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "demo": "node demo.js"
+  },
+  "dependencies": {
+    "@arbitrum/sdk": "^2.0.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.8.0",
+    "web3": "^4.3.0"
+  },
+  "keywords": [
+    "cross-chain",
+    "bridge",
+    "blockchain",
+    "defi"
+  ],
+  "author": "Bridge Demo",
+  "license": "MIT"
+}
