@@ -36,7 +36,7 @@ async function runDemo() {
     userAddress: "0x565d4ba385fc4e3c1b07ce078682c84719475e76", // 用户地址
     chain: "ethereum",
     chian_id: networks.ethTestnet.chainId,
-    bridgeAddress: "0x8315177aB297bA92A06054cE80a67Ed4DBd7ed3a", // Arbitrum Bridge 合约地址
+    bridgeAddress: "0xaAe29B0366299461418F5324a79Afc425BE5ae21", // Arbitrum Bridge 合约地址
     srcToken: {
       address: null,
       chain: "arbitrum",
@@ -62,7 +62,8 @@ async function runDemo() {
   // const provider = new ethers.JsonRpcProvider(networks.ethTestnet.rpc);
   // const broadcastTx = await provider.broadcastTransaction(signedTx);
   // console.log("广播后的交易", broadcastTx);
-  const l1hash = '0x55212a5edab1fe5be69a6977c799ad1fee2bb1734106991be4bbad4bde06b4a6';
+  const l1hash =
+    "0x2b7c81a4fab37571bb7b19a00e50b243eb19c99559d01e6a7fc6719573d64866";
   const receipt = await bridgeService.listenBridgeResult(l1hash);
   console.log("跨链结果", receipt);
 }
