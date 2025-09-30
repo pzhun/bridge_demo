@@ -54,6 +54,10 @@ class ArbNativeBridge {
     this.arbitrumChainId = networks.arbitrum.chainId;
     this.ethereumProvider = new ethers.JsonRpcProvider(networks.ethereum.rpc);
     this.ethereumChainId = networks.ethereum.chainId;
+    this.providers = {
+      arbitrum: this.arbitrumProvider,
+      ethereum: this.ethereumProvider,
+    };
   }
 
   /**
@@ -61,99 +65,180 @@ class ArbNativeBridge {
    */
   async createBridgeTransaction(requestData) {
     try {
+      this.validateRequestData(requestData);
+
       const amount = ethers.parseEther(requestData.srcToken.amount);
+      const [l1GasData, l2GasData] = await this.getGasData();
 
-      const l1gasPrice = await this.ethereumProvider.getFeeData();
-      const l2gasPrice = await this.arbitrumProvider.getFeeData();
-
-      let unsignedTx = {};
-      let contract;
-      let nonce;
-
+      const transactionConfig = {
+        amount,
+        userAddress: requestData.userAddress,
+        bridgeAddress: requestData.bridgeAddress,
+        l1GasData,
+        l2GasData,
+      };
+      let unsignedTx;
       switch (requestData.chain) {
         case this.supportChain.arbitrum:
-          contract = new ethers.Contract(
-            requestData.bridgeAddress,
-            this.abi,
-            this.arbitrumProvider
-          );
-          unsignedTx = await contract.withdrawEth.populateTransaction(
-            requestData.userAddress,
-            { value: amount }
-          );
-          unsignedTx.chainId = this.arbitrumChainId;
-          unsignedTx.gasPrice = l2gasPrice.maxFeePerGas;
-          unsignedTx.maxFeePerGas = l2gasPrice.maxFeePerGas;
-          unsignedTx.maxPriorityFeePerGas = l2gasPrice.maxPriorityFeePerGas;
-          // 添加必要字段
-          nonce = await this.arbitrumProvider.getTransactionCount(
-            requestData.userAddress
-          );
-          unsignedTx.nonce = nonce;
+          unsignedTx = await this.createArbitrumToEthereumTx(transactionConfig);
           break;
         case this.supportChain.ethereum:
-          contract = new ethers.Contract(
-            requestData.bridgeAddress,
-            this.abi,
-            this.ethereumProvider
-          );
-          const toAddress = requestData.userAddress;
-          const l2CallValue = amount;
-          const excessFeeRefundAddress = requestData.userAddress;
-          const callValueRefundAddress = requestData.userAddress;
-          const data = "0x";
-          const maxFeePerGas = l2gasPrice.maxFeePerGas;
-          const calldataSize = data.length / 2; // bytes
-          const dataGasPerByte = 16;
-          const calldataCost =
-            l2gasPrice.maxFeePerGas *
-            BigInt(calldataSize) *
-            BigInt(dataGasPerByte);
-
-          const maxSubmissionCost = calldataCost;
-
-          // L2 执行 gas
-          const gasLimit = 27514; // 或用 estimateGas 计算
-          const l2ExecutionCost = BigInt(gasLimit) * maxFeePerGas;
-
-          // L1 发送总金额
-          const totalValue = l2CallValue + maxSubmissionCost + l2ExecutionCost;
-
-          unsignedTx = await contract.createRetryableTicket.populateTransaction(
-            toAddress,
-            l2CallValue,
-            maxSubmissionCost,
-            excessFeeRefundAddress,
-            callValueRefundAddress,
-            gasLimit,
-            maxFeePerGas,
-            data,
-            { value: totalValue } // ✅ 注意这里必须覆盖所有部分
-          );
-          unsignedTx.chainId = this.ethereumChainId;
-          unsignedTx.gasPrice = l1gasPrice.maxFeePerGas;
-          unsignedTx.maxFeePerGas = l1gasPrice.maxFeePerGas;
-          unsignedTx.maxPriorityFeePerGas = l1gasPrice.maxPriorityFeePerGas;
-          // 添加必要字段
-          nonce = await this.ethereumProvider.getTransactionCount(
-            requestData.userAddress
-          );
-          unsignedTx.nonce = nonce;
+          unsignedTx = await this.createEthereumToArbitrumTx(transactionConfig);
           break;
         default:
           throw new Error(`不支持的链: ${requestData.chain}`);
       }
 
-      unsignedTx.type = 2; // EIP-1559
-      unsignedTx.from = requestData.userAddress;
-      // 估算gaslimit 使用l1的gaslimit
-      unsignedTx.gasLimit = 1000000;
-
-      return unsignedTx;
+      return this.finalizeTransaction(unsignedTx, requestData);
     } catch (error) {
       console.error("❌ 创建跨链交易失败:", error.message);
       throw error;
     }
+  }
+
+  /**
+   * 验证请求数据
+   */
+  validateRequestData(requestData) {
+    const required = ["userAddress", "bridgeAddress", "srcToken"];
+    for (const field of required) {
+      if (!requestData[field]) {
+        throw new Error(`缺少必需字段: ${field}`);
+      }
+    }
+
+    if (
+      !requestData.srcToken.amount ||
+      parseFloat(requestData.srcToken.amount) <= 0
+    ) {
+      throw new Error("转账金额必须大于0");
+    }
+
+    // 验证用户地址
+    if (!ethers.isAddress(requestData.userAddress)) {
+      throw new Error(`无效的用户地址: ${requestData.userAddress}`);
+    }
+
+    // 验证桥接合约地址
+    if (!ethers.isAddress(requestData.bridgeAddress)) {
+      throw new Error(`无效的桥接合约地址: ${requestData.bridgeAddress}`);
+    }
+  }
+
+  /**
+   * 获取Gas数据
+   */
+  async getGasData() {
+    const [l1GasData, l2GasData] = await Promise.all([
+      this.ethereumProvider.getFeeData(),
+      this.arbitrumProvider.getFeeData(),
+    ]);
+    return [l1GasData, l2GasData];
+  }
+
+  /**
+   * 创建从Arbitrum到Ethereum的交易
+   */
+  async createArbitrumToEthereumTx(config) {
+    const contract = new ethers.Contract(
+      config.bridgeAddress,
+      this.abi,
+      this.providers.arbitrum
+    );
+
+    const unsignedTx = await contract.withdrawEth.populateTransaction(
+      config.userAddress,
+      { value: config.amount }
+    );
+
+    return {
+      ...unsignedTx,
+      chainId: this.arbitrumChainId,
+      gasPrice: config.l2GasData.maxFeePerGas,
+      maxFeePerGas: config.l2GasData.maxFeePerGas,
+      maxPriorityFeePerGas: config.l2GasData.maxPriorityFeePerGas,
+      nonce: await this.arbitrumProvider.getTransactionCount(
+        config.userAddress
+      ),
+    };
+  }
+
+  /**
+   * 创建从Ethereum到Arbitrum的交易
+   */
+  async createEthereumToArbitrumTx(config) {
+    const contract = new ethers.Contract(
+      config.bridgeAddress,
+      this.abi,
+      this.providers.ethereum
+    );
+
+    const retryableTicketParams = this.calculateRetryableTicketParams(config);
+
+    const unsignedTx = await contract.createRetryableTicket.populateTransaction(
+      retryableTicketParams.toAddress,
+      retryableTicketParams.l2CallValue,
+      retryableTicketParams.maxSubmissionCost,
+      retryableTicketParams.excessFeeRefundAddress,
+      retryableTicketParams.callValueRefundAddress,
+      retryableTicketParams.gasLimit,
+      retryableTicketParams.maxFeePerGas,
+      retryableTicketParams.data,
+      { value: retryableTicketParams.totalValue }
+    );
+
+    return {
+      ...unsignedTx,
+      chainId: this.ethereumChainId,
+      gasPrice: config.l1GasData.maxFeePerGas,
+      maxFeePerGas: config.l1GasData.maxFeePerGas,
+      maxPriorityFeePerGas: config.l1GasData.maxPriorityFeePerGas,
+      nonce: await this.ethereumProvider.getTransactionCount(
+        config.userAddress
+      ),
+    };
+  }
+
+  /**
+   * 计算RetryableTicket参数
+   */
+  calculateRetryableTicketParams(config) {
+    const data = "0x";
+    const calldataSize = data.length / 2;
+    const dataGasPerByte = 16;
+    const calldataCost =
+      config.l2GasData.maxFeePerGas *
+      BigInt(calldataSize) *
+      BigInt(dataGasPerByte);
+
+    const maxSubmissionCost = calldataCost;
+    const gasLimit = 27514; // 固定值，也可以动态计算
+    const l2ExecutionCost = BigInt(gasLimit) * config.l2GasData.maxFeePerGas;
+    const totalValue = config.amount + maxSubmissionCost + l2ExecutionCost;
+
+    return {
+      toAddress: config.userAddress,
+      l2CallValue: config.amount,
+      maxSubmissionCost,
+      excessFeeRefundAddress: config.userAddress,
+      callValueRefundAddress: config.userAddress,
+      gasLimit,
+      maxFeePerGas: config.l2GasData.maxFeePerGas,
+      data,
+      totalValue,
+    };
+  }
+
+  /**
+   * 完成交易配置
+   */
+  finalizeTransaction(unsignedTx, requestData) {
+    return {
+      ...unsignedTx,
+      type: 2, // EIP-1559
+      from: requestData.userAddress,
+      gasLimit: 1000000, // 可以根据实际情况调整
+    };
   }
 
   // 监听跨链结果
@@ -192,44 +277,6 @@ class ArbNativeBridge {
       }
     }
     console.log(ticketId);
-  }
-
-  /**
-   * 验证请求数据
-   */
-  validateRequestData(requestData) {
-    if (!requestData.address || !ethers.isAddress(requestData.address)) {
-      throw new Error("无效的地址");
-    }
-
-    if (
-      !requestData.bridgeAddress ||
-      !ethers.isAddress(requestData.bridgeAddress)
-    ) {
-      throw new Error("无效的 Bridge 地址");
-    }
-
-    if (!requestData.srcToken || !requestData.srcToken.amount) {
-      throw new Error("缺少源代币金额");
-    }
-
-    if (requestData.srcToken.chain !== this.supportChain[requestData.chain]) {
-      throw new Error(`源链必须是 ${this.supportChain[requestData.chain]}`);
-    }
-
-    if (requestData.dstToken.chain !== this.supportChain[requestData.chain]) {
-      throw new Error(`目标链必须是 ${this.supportChain[requestData.chain]}`);
-    }
-
-    if (BigInt(requestData.srcToken.amount) <= 0) {
-      throw new Error("转账金额必须大于0");
-    }
-
-    // 检查最小转账金额 (0.001 ETH)
-    const minAmount = ethers.parseEther("0.001");
-    if (BigInt(requestData.srcToken.amount) < minAmount) {
-      throw new Error("转账金额不能小于 0.001 ETH");
-    }
   }
 
   /**

@@ -75,9 +75,9 @@ async function runDemo() {
   const signedTx = await wallet.signTransaction(transaction);
   console.log("签名后的交易", signedTx);
 
-  const provider = new ethers.JsonRpcProvider(networks.arbTestnet.rpc);
-  const broadcastTx = await provider.broadcastTransaction(signedTx);
-  console.log("广播后的交易", broadcastTx);
+  // const provider = new ethers.JsonRpcProvider(networks.arbTestnet.rpc);
+  // const broadcastTx = await provider.broadcastTransaction(signedTx);
+  // console.log("广播后的交易", broadcastTx);
   // const hash =
   //   "0x2b7c81a4fab37571bb7b19a00e50b243eb19c99559d01e6a7fc6719573d64866";
   // const receipt = await bridgeService.listenBridgeResult({
