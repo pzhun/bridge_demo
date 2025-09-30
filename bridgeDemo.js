@@ -45,19 +45,19 @@ async function runDemo() {
   console.log("eth2ArbTx", eth2ArbTx);
   console.log("arb2EthTx", arb2EthTx);
 
-  const signedEth2ArbTx = await wallet.signTransaction(eth2ArbTx);
-  const signedArb2EthTx = await wallet.signTransaction(arb2EthTx);
+  // const signedEth2ArbTx = await wallet.signTransaction(eth2ArbTx);
+  // const signedArb2EthTx = await wallet.signTransaction(arb2EthTx);
 
-  const broadcastEth2ArbTx = await wallet.broadcastTransaction(
-    networks.ethTestnet.rpc,
-    signedEth2ArbTx
-  );
-  const broadcastArb2EthTx = await wallet.broadcastTransaction(
-    networks.arbTestnet.rpc,
-    signedArb2EthTx
-  );
-  console.log("广播后的交易", broadcastEth2ArbTx);
-  console.log("广播后的交易", broadcastArb2EthTx);
+  // const broadcastEth2ArbTx = await wallet.broadcastTransaction(
+  //   networks.ethTestnet.rpc,
+  //   signedEth2ArbTx
+  // );
+  // const broadcastArb2EthTx = await wallet.broadcastTransaction(
+  //   networks.arbTestnet.rpc,
+  //   signedArb2EthTx
+  // );
+  // console.log("广播后的交易", broadcastEth2ArbTx);
+  // console.log("广播后的交易", broadcastArb2EthTx);
 }
 
 async function eth2ArbDemo(bridgeService) {
