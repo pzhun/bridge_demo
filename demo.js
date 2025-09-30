@@ -25,31 +25,68 @@ const networks = {
   // },
 };
 
+const bridgeName = "arb_native_bridge";
+
 async function runDemo() {
   const privateKey =
     "0xcb28292e69f20f36a8eff9f848c935b44fa9d84f2de1f4f29990e2affb5f91c8";
   const wallet = new UserWallet(privateKey);
-  console.log(wallet.address);
-  // 从eth跨链到arb
-  // const requestData = {
-  //   bridge: "arb_native_bridge",
-  //   userAddress: "0x565d4ba385fc4e3c1b07ce078682c84719475e76", // 用户地址
-  //   chain: "ethereum",
-  //   chian_id: networks.ethTestnet.chainId,
-  //   bridgeAddress: "0xaAe29B0366299461418F5324a79Afc425BE5ae21", // Arbitrum Bridge 合约地址
-  //   srcToken: {
-  //     address: null,
-  //     amount: "0.0001",
-  //   },
-  //   dstToken: {
-  //     address: null,
-  //     chain: "eth",
-  //   },
-  // };
 
-  // 从arb跨链到eth
+  let bridgeService;
+
+  bridgeService = new BridgeService(bridgeName, {
+    arbitrum: networks.arbTestnet,
+    ethereum: networks.ethTestnet,
+  });
+
+  const eth2ArbTx = await eth2ArbDemo(bridgeService);
+  const arb2EthTx = await arb2EthDemo(bridgeService);
+
+  console.log("eth2ArbTx", eth2ArbTx);
+  console.log("arb2EthTx", arb2EthTx);
+
+  const signedEth2ArbTx = await wallet.signTransaction(eth2ArbTx);
+  const signedArb2EthTx = await wallet.signTransaction(arb2EthTx);
+
+  const broadcastEth2ArbTx = await wallet.broadcastTransaction(
+    networks.ethTestnet.rpc,
+    signedEth2ArbTx
+  );
+  const broadcastArb2EthTx = await wallet.broadcastTransaction(
+    networks.arbTestnet.rpc,
+    signedArb2EthTx
+  );
+  console.log("广播后的交易", broadcastEth2ArbTx);
+  console.log("广播后的交易", broadcastArb2EthTx);
+}
+
+async function eth2ArbDemo(bridgeService) {
+  // 从eth跨链到arb;
   const requestData = {
-    bridge: "arb_native_bridge",
+    bridge: bridgeName,
+    userAddress: "0x565d4ba385fc4e3c1b07ce078682c84719475e76", // 用户地址
+    chain: "ethereum",
+    chian_id: networks.ethTestnet.chainId,
+    bridgeAddress: "0xaAe29B0366299461418F5324a79Afc425BE5ae21", // Arbitrum Bridge 合约地址
+    srcToken: {
+      address: null,
+      amount: "0.0001",
+    },
+    dstToken: {
+      address: null,
+      chain: "eth",
+    },
+  };
+
+  const transaction = await bridgeService.createBridgeTransaction(requestData);
+
+  return transaction;
+}
+
+async function arb2EthDemo(bridgeService) {
+  // 从arb跨链到eth;
+  const requestData = {
+    bridge: bridgeName,
     userAddress: "0x565d4ba385fc4e3c1b07ce078682c84719475e76", // 用户地址
     chain: "arbitrum",
     chian_id: networks.arbTestnet.chainId,
@@ -64,27 +101,9 @@ async function runDemo() {
     },
   };
 
-  let bridgeService;
-
-  bridgeService = new BridgeService(requestData.bridge, {
-    arbitrum: networks.arbTestnet,
-    ethereum: networks.ethTestnet,
-  });
   const transaction = await bridgeService.createBridgeTransaction(requestData);
-  console.log("跨链转账", transaction);
-  const signedTx = await wallet.signTransaction(transaction);
-  console.log("签名后的交易", signedTx);
 
-  // const provider = new ethers.JsonRpcProvider(networks.arbTestnet.rpc);
-  // const broadcastTx = await provider.broadcastTransaction(signedTx);
-  // console.log("广播后的交易", broadcastTx);
-  // const hash =
-  //   "0x2b7c81a4fab37571bb7b19a00e50b243eb19c99559d01e6a7fc6719573d64866";
-  // const receipt = await bridgeService.listenBridgeResult({
-  //   ...requestData,
-  //   hash,
-  // });
-  // console.log("跨链结果", receipt);
+  return transaction;
 }
 
 // 运行演示

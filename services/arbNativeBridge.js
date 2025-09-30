@@ -68,14 +68,11 @@ class ArbNativeBridge {
       this.validateRequestData(requestData);
 
       const amount = ethers.parseEther(requestData.srcToken.amount);
-      const [l1GasData, l2GasData] = await this.getGasData();
 
       const transactionConfig = {
         amount,
         userAddress: requestData.userAddress,
         bridgeAddress: requestData.bridgeAddress,
-        l1GasData,
-        l2GasData,
       };
       let unsignedTx;
       switch (requestData.chain) {
@@ -89,7 +86,7 @@ class ArbNativeBridge {
           throw new Error(`不支持的链: ${requestData.chain}`);
       }
 
-      return this.finalizeTransaction(unsignedTx, requestData);
+      return await this.finalizeTransaction(unsignedTx, requestData);
     } catch (error) {
       console.error("❌ 创建跨链交易失败:", error.message);
       throw error;
@@ -131,7 +128,6 @@ class ArbNativeBridge {
   async getGasData() {
     const [l1GasData, l2GasData] = await Promise.all([
       this.ethereumProvider.getFeeData(),
-      this.arbitrumProvider.getFeeData(),
     ]);
     return [l1GasData, l2GasData];
   }
@@ -151,16 +147,7 @@ class ArbNativeBridge {
       { value: config.amount }
     );
 
-    return {
-      ...unsignedTx,
-      chainId: this.arbitrumChainId,
-      gasPrice: config.l2GasData.maxFeePerGas,
-      maxFeePerGas: config.l2GasData.maxFeePerGas,
-      maxPriorityFeePerGas: config.l2GasData.maxPriorityFeePerGas,
-      nonce: await this.arbitrumProvider.getTransactionCount(
-        config.userAddress
-      ),
-    };
+    return unsignedTx;
   }
 
   /**
@@ -173,7 +160,9 @@ class ArbNativeBridge {
       this.providers.ethereum
     );
 
-    const retryableTicketParams = this.calculateRetryableTicketParams(config);
+    const retryableTicketParams = await this.calculateRetryableTicketParams(
+      config
+    );
 
     const unsignedTx = await contract.createRetryableTicket.populateTransaction(
       retryableTicketParams.toAddress,
@@ -187,33 +176,23 @@ class ArbNativeBridge {
       { value: retryableTicketParams.totalValue }
     );
 
-    return {
-      ...unsignedTx,
-      chainId: this.ethereumChainId,
-      gasPrice: config.l1GasData.maxFeePerGas,
-      maxFeePerGas: config.l1GasData.maxFeePerGas,
-      maxPriorityFeePerGas: config.l1GasData.maxPriorityFeePerGas,
-      nonce: await this.ethereumProvider.getTransactionCount(
-        config.userAddress
-      ),
-    };
+    return unsignedTx;
   }
 
   /**
    * 计算RetryableTicket参数
    */
-  calculateRetryableTicketParams(config) {
+  async calculateRetryableTicketParams(config) {
+    const l2GasData = await this.arbitrumProvider.getFeeData();
     const data = "0x";
     const calldataSize = data.length / 2;
     const dataGasPerByte = 16;
     const calldataCost =
-      config.l2GasData.maxFeePerGas *
-      BigInt(calldataSize) *
-      BigInt(dataGasPerByte);
+      l2GasData.maxFeePerGas * BigInt(calldataSize) * BigInt(dataGasPerByte);
 
     const maxSubmissionCost = calldataCost;
     const gasLimit = 27514; // 固定值，也可以动态计算
-    const l2ExecutionCost = BigInt(gasLimit) * config.l2GasData.maxFeePerGas;
+    const l2ExecutionCost = BigInt(gasLimit) * l2GasData.maxFeePerGas;
     const totalValue = config.amount + maxSubmissionCost + l2ExecutionCost;
 
     return {
@@ -223,7 +202,7 @@ class ArbNativeBridge {
       excessFeeRefundAddress: config.userAddress,
       callValueRefundAddress: config.userAddress,
       gasLimit,
-      maxFeePerGas: config.l2GasData.maxFeePerGas,
+      maxFeePerGas: l2GasData.maxFeePerGas,
       data,
       totalValue,
     };
@@ -232,12 +211,23 @@ class ArbNativeBridge {
   /**
    * 完成交易配置
    */
-  finalizeTransaction(unsignedTx, requestData) {
+  async finalizeTransaction(unsignedTx, requestData) {
+    const provider = this.providers[requestData.chain];
+    const chainId = requestData.chian_id;
+    const nonce = await provider.getTransactionCount(requestData.userAddress);
+    const gasLimit = await provider.estimateGas(unsignedTx);
+    const gasPrice = await provider.getFeeData();
+    const maxFeePerGas = gasPrice.maxFeePerGas;
+    const maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
     return {
       ...unsignedTx,
       type: 2, // EIP-1559
       from: requestData.userAddress,
-      gasLimit: 1000000, // 可以根据实际情况调整
+      chainId,
+      nonce,
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     };
   }
 

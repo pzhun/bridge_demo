@@ -11,6 +11,11 @@ class UserWallet {
     return await this.wallet.signTransaction(transaction);
   }
 
+  async broadcastTransaction(providerUrl, transaction) {
+    const provider = new ethers.JsonRpcProvider(providerUrl);
+    return await provider.broadcastTransaction(transaction);
+  }
+
   get address() {
     return this.wallet.address;
   }
