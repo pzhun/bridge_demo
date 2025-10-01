@@ -233,11 +233,52 @@ class ArbNativeBridge {
 
   // 监听跨链结果
   async listenBridgeResult(requestData) {
+    const sequenceNumber = await this.getSequenceNumber(
+      requestData.hash,
+      requestData.bridgeAddress
+    );
+    const canClaim = await this.canClaim(sequenceNumber, 0);
+  }
+
+  async getSequenceNumber(l2hash, bridgeAddress) {
+    const receipt = await this.arbitrumProvider.getTransactionReceipt(l2hash);
+
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() === bridgeAddress.toLowerCase()) {
+        const sequenceNumber = BigInt(log.topics[3]).toString();
+        return sequenceNumber;
+      }
+    }
+    throw new Error("L2ToL1Tx not found in this tx");
+  }
+
+  async canClaim(batchNumber, indexInBatch) {
+    // Arbitrum Sepolia Outbox 地址
+    const OUTBOX_ADDRESS = "0x0000000000000000000000000000000000000064"; // ArbSys 地址
+    const OUTBOX_ABI = [
+      "function isSpent(uint256 batchNumber, uint256 indexInBatch) view returns (bool)",
+      "function outboxEntryExists(uint256 batchNumber) view returns (bool)",
+    ];
+    
     try {
-      await this.listenRetryableTicket(requestData);
+      const outbox = new ethers.Contract(
+        OUTBOX_ADDRESS,
+        OUTBOX_ABI,
+        this.ethereumProvider
+      );
+
+      // 1️⃣ 消息是否存在
+      const exists = await outbox.outboxEntryExists(batchNumber);
+      console.log(exists);
+      if (!exists) return false;
+
+      // 2️⃣ 是否已被执行
+      const spent = await outbox.isSpent(batchNumber, indexInBatch);
+      console.log(spent);
+      return !spent;
     } catch (error) {
-      console.error("❌ 监听跨链结果失败:", error.message);
-      throw error;
+      console.log("Outbox contract call failed:", error.message);
+      return false;
     }
   }
 
@@ -261,8 +302,7 @@ class ArbNativeBridge {
       ) {
         try {
           const parsed = iface.parseLog(log);
-          const ticketId = parsed.args.messageNum; // 可以对应 Retryable Ticket
-          ticketId = ticketId;
+          ticketId = parsed.args.messageNum; // 可以对应 Retryable Ticket
         } catch (err) {}
       }
     }
