@@ -41,14 +41,14 @@ async function runDemo() {
 
   const l2hash =
     "0x8dac0859074feb0398bdfb452e702e2cc405d226cf2f022f9a23872aabbe61fb";
-  const lhash = await bridgeService.listenBridgeResult({
+  const bridgeResult = await bridgeService.listenBridgeResult({
     hash: l2hash,
     bridgeAddress: "0x0000000000000000000000000000000000000064",
     chainId: networks.arbTestnet.chainId,
     userAddress: wallet.address,
   });
 
-  console.log("lhash", lhash);
+  console.log("bridgeResult", bridgeResult);
 }
 
 // 运行演示

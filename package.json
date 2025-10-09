@@ -8,9 +8,11 @@
     "demo": "node demo.js"
   },
   "dependencies": {
+    "@arbitrum/sdk": "^v4.0.1",
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "ethers": "^6.8.0",
+    "ethers5": "npm:ethers@^5.8.0",
+    "ethers": "^6.15.0",
     "web3": "^4.3.0"
   },
   "keywords": [

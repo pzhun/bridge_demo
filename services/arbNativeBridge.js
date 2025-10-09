@@ -1,4 +1,10 @@
 const { ethers } = require("ethers");
+const { providers } = require("ethers5");
+const {
+  ChildTransactionReceipt,
+  ChildToParentMessageStatus,
+} = require("@arbitrum/sdk");
+
 /**
  * Arbitrum 原生代币跨链桥服务
  * 支持从 Arbitrum 跨链到 Ethereum
@@ -50,6 +56,7 @@ class ArbNativeBridge {
       },
       "event InboxMessageDelivered(uint256 indexed messageNum, bytes data)",
     ];
+    this.networks = networks;
     this.arbitrumProvider = new ethers.JsonRpcProvider(networks.arbitrum.rpc);
     this.arbitrumChainId = networks.arbitrum.chainId;
     this.ethereumProvider = new ethers.JsonRpcProvider(networks.ethereum.rpc);
@@ -233,11 +240,48 @@ class ArbNativeBridge {
 
   // 监听跨链结果
   async listenBridgeResult(requestData) {
-    const sequenceNumber = await this.getSequenceNumber(
-      requestData.hash,
-      requestData.bridgeAddress
+    const result = {
+      claimed: false, // 是否已经被claim
+      claimable: false, // 是否可以被claim
+    };
+    /**
+     * First, let's find the transaction from the transaction hash provided
+     */
+    const receipt = await this.arbitrumProvider.getTransactionReceipt(
+      requestData.hash
     );
-    const canClaim = await this.canClaim(sequenceNumber, 0);
+    const transactionReceipt = new ChildTransactionReceipt(receipt);
+
+    // 转换为arb sdk 可用的对象
+    const ether5L1Provider = new providers.JsonRpcProvider(
+      this.networks.ethereum.rpc
+    );
+
+    const ether5L2Provider = new providers.JsonRpcProvider(
+      this.networks.arbitrum.rpc
+    );
+
+    const messages = await transactionReceipt.getChildToParentMessages(
+      ether5L1Provider
+    );
+    const childToParentMessage = messages[0];
+
+    if (
+      (await childToParentMessage.status(ether5L2Provider)) ==
+      ChildToParentMessageStatus.EXECUTED
+    ) {
+      result.claimed = true;
+      return result;
+    }
+
+    const timeToWaitMs = 1000 * 60;
+    await childToParentMessage.waitUntilReadyToExecute(
+      this.arbitrumProvider,
+      timeToWaitMs
+    );
+    result.claimable = true;
+
+    return result;
   }
 
   async getSequenceNumber(l2hash, bridgeAddress) {
@@ -250,36 +294,6 @@ class ArbNativeBridge {
       }
     }
     throw new Error("L2ToL1Tx not found in this tx");
-  }
-
-  async canClaim(batchNumber, indexInBatch) {
-    // Arbitrum Sepolia Outbox 地址
-    const OUTBOX_ADDRESS = "0x0000000000000000000000000000000000000064"; // ArbSys 地址
-    const OUTBOX_ABI = [
-      "function isSpent(uint256 batchNumber, uint256 indexInBatch) view returns (bool)",
-      "function outboxEntryExists(uint256 batchNumber) view returns (bool)",
-    ];
-    
-    try {
-      const outbox = new ethers.Contract(
-        OUTBOX_ADDRESS,
-        OUTBOX_ABI,
-        this.ethereumProvider
-      );
-
-      // 1️⃣ 消息是否存在
-      const exists = await outbox.outboxEntryExists(batchNumber);
-      console.log(exists);
-      if (!exists) return false;
-
-      // 2️⃣ 是否已被执行
-      const spent = await outbox.isSpent(batchNumber, indexInBatch);
-      console.log(spent);
-      return !spent;
-    } catch (error) {
-      console.log("Outbox contract call failed:", error.message);
-      return false;
-    }
   }
 
   async listenRetryableTicket(requestData) {
