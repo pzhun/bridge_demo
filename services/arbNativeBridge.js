@@ -54,6 +54,23 @@ class ArbNativeBridge {
         stateMutability: "nonpayable",
         type: "function",
       },
+      {
+        inputs: [
+          { internalType: "bytes32[]", name: "proof", type: "bytes32[]" },
+          { internalType: "uint256", name: "index", type: "uint256" },
+          { internalType: "address", name: "l2Sender", type: "address" },
+          { internalType: "address", name: "to", type: "address" },
+          { internalType: "uint256", name: "l2Block", type: "uint256" },
+          { internalType: "uint256", name: "l1Block", type: "uint256" },
+          { internalType: "uint256", name: "l2Timestamp", type: "uint256" },
+          { internalType: "uint256", name: "value", type: "uint256" },
+          { internalType: "bytes", name: "data", type: "bytes" },
+        ],
+        name: "executeTransaction",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+      },
       "event InboxMessageDelivered(uint256 indexed messageNum, bytes data)",
     ];
     this.networks = networks;
@@ -220,7 +237,7 @@ class ArbNativeBridge {
    */
   async finalizeTransaction(unsignedTx, requestData) {
     const provider = this.providers[requestData.chain];
-    const chainId = requestData.chian_id;
+    const chainId = requestData.chainId;
     const nonce = await provider.getTransactionCount(requestData.userAddress);
     const gasLimit = await provider.estimateGas(unsignedTx);
     const gasPrice = await provider.getFeeData();
@@ -276,12 +293,56 @@ class ArbNativeBridge {
 
     const timeToWaitMs = 1000 * 60;
     await childToParentMessage.waitUntilReadyToExecute(
-      this.arbitrumProvider,
+      ether5L2Provider,
       timeToWaitMs
     );
     result.claimable = true;
 
+    const proof = await childToParentMessage.getOutboxProof(ether5L2Provider);
+    const event = childToParentMessage.nitroReader.event;
+    result.data = {
+      bridgeAddress: requestData.bridgeAddress,
+      proof: proof,
+      index: event.position.toString(),
+      l2Sender: event.caller,
+      to: event.destination,
+      l2Block: event.arbBlockNum.toString(),
+      l1Block: event.ethBlockNum.toString(),
+      l2Timestamp: event.timestamp.toString(),
+      value: event.callvalue.toString(),
+      data: event.data,
+    };
+
     return result;
+  }
+
+  async claimBridgeResult(requestData) {
+    try {
+      const l1Contract = new ethers.Contract(
+        requestData.bridgeAddress,
+        this.abi,
+        this.ethereumProvider
+      );
+
+      // 构建待签名的交易数据
+      const unsignedTx =
+        await l1Contract.executeTransaction.populateTransaction(
+          requestData.proof,
+          requestData.index,
+          requestData.l2Sender,
+          requestData.to,
+          requestData.l2Block,
+          requestData.l1Block,
+          requestData.l2Timestamp,
+          requestData.value,
+          requestData.data
+        );
+
+      return await this.finalizeTransaction(unsignedTx, requestData);
+    } catch (error) {
+      console.error("❌ 准备 claim 数据失败:", error.message);
+      throw error;
+    }
   }
 
   async getSequenceNumber(l2hash, bridgeAddress) {

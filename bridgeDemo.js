@@ -66,7 +66,7 @@ async function eth2ArbDemo(bridgeService) {
     bridge: bridgeName,
     userAddress: "0x565d4ba385fc4e3c1b07ce078682c84719475e76", // 用户地址
     chain: "ethereum",
-    chian_id: networks.ethTestnet.chainId,
+    chainId: networks.ethTestnet.chainId,
     bridgeAddress: "0xaAe29B0366299461418F5324a79Afc425BE5ae21", // Arbitrum Bridge 合约地址
     srcToken: {
       address: null,
@@ -89,7 +89,7 @@ async function arb2EthDemo(bridgeService) {
     bridge: bridgeName,
     userAddress: "0x565d4ba385fc4e3c1b07ce078682c84719475e76", // 用户地址
     chain: "arbitrum",
-    chian_id: networks.arbTestnet.chainId,
+    chainId: networks.arbTestnet.chainId,
     bridgeAddress: "0x0000000000000000000000000000000000000064", // Arbitrum Bridge 合约地址
     srcToken: {
       address: null,

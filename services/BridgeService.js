@@ -28,6 +28,10 @@ class BridgeService {
   async listenBridgeResult(requestData) {
     return await this.bridgeService.listenBridgeResult(requestData);
   }
+
+  async claimBridgeResult(requestData) {
+    return await this.bridgeService.claimBridgeResult(requestData);
+  }
 }
 
 module.exports = BridgeService;
