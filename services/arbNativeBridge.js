@@ -51,7 +51,7 @@ class ArbNativeBridge {
         ],
         name: "withdrawEth",
         outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-        stateMutability: "nonpayable",
+        stateMutability: "payable",
         type: "function",
       },
       {
@@ -163,7 +163,6 @@ class ArbNativeBridge {
     const contract = new ethers.Contract(
       config.bridgeAddress,
       this.abi,
-      this.providers.arbitrum
     );
 
     const unsignedTx = await contract.withdrawEth.populateTransaction(

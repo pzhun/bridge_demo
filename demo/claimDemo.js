@@ -1,7 +1,7 @@
 const { ethers } = require("ethers");
 
-const BridgeService = require("./services/BridgeService");
-const UserWallet = require("./services/userWallet");
+const BridgeService = require("../services/BridgeService");
+const UserWallet = require("../services/userWallet");
 /**
  * 跨链桥演示脚本
  */
@@ -39,16 +39,32 @@ async function runDemo() {
     ethereum: networks.ethTestnet,
   });
 
-  const l2hash =
-    "0x08175435746c990289ccb32b029d5217f457122a7074c906b9edccb90f3ebcbf";
-  const bridgeResult = await bridgeService.listenBridgeResult({
-    hash: l2hash,
-    bridgeAddress: "0x0000000000000000000000000000000000000064",
-    chainId: networks.arbTestnet.chainId,
+  const requestData = {
+    hash: "0x08175435746c990289ccb32b029d5217f457122a7074c906b9edccb90f3ebcbf",
+    bridgeAddress: "0x65f07C7D521164a4d5DaC6eB8Fac8DA067A3B78F",
+    chainId: networks.ethTestnet.chainId,
+    chain: "ethereum",
     userAddress: wallet.address,
-  });
+  };
+  const bridgeResult = await bridgeService.listenBridgeResult(requestData);
 
-  console.log("bridgeResult", bridgeResult);
+  if (bridgeResult.claimable) {
+    const claimData = await bridgeService.claimBridgeResult({
+      ...bridgeResult.data,
+      ...requestData,
+    });
+    console.log(claimData);
+    const signedTx = await wallet.signTransaction(claimData);
+    const broadcastTx = await wallet.broadcastTransaction(
+      networks.ethTestnet.rpc,
+      signedTx
+    );
+    console.log("broadcastTx", broadcastTx);
+  } else if (bridgeResult.claimed) {
+    console.log("ℹ️ 该交易已经被 claim 过了");
+  } else {
+    console.log("⏳ 交易还不能被 claim，请稍后再试");
+  }
 }
 
 // 运行演示

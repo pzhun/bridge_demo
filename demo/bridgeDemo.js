@@ -1,7 +1,7 @@
 const { ethers } = require("ethers");
 
-const BridgeService = require("./services/BridgeService");
-const UserWallet = require("./services/userWallet");
+const BridgeService = require("../services/BridgeService");
+const UserWallet = require("../services/userWallet");
 /**
  * 跨链桥演示脚本
  */
