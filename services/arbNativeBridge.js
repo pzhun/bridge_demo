@@ -3,6 +3,8 @@ const { providers } = require("ethers5");
 const {
   ChildTransactionReceipt,
   ChildToParentMessageStatus,
+  ParentTransactionReceipt,
+  ParentToChildMessageStatus,
 } = require("@arbitrum/sdk");
 
 /**
@@ -160,10 +162,7 @@ class ArbNativeBridge {
    * 创建从Arbitrum到Ethereum的交易
    */
   async createArbitrumToEthereumTx(config) {
-    const contract = new ethers.Contract(
-      config.bridgeAddress,
-      this.abi,
-    );
+    const contract = new ethers.Contract(config.bridgeAddress, this.abi);
 
     const unsignedTx = await contract.withdrawEth.populateTransaction(
       config.userAddress,
@@ -256,6 +255,79 @@ class ArbNativeBridge {
 
   // 监听跨链结果
   async listenBridgeResult(requestData) {
+    if (requestData.chain === this.supportChain.arbitrum) {
+      return await this.listenArbToEth(requestData);
+    } else if (requestData.chain === this.supportChain.ethereum) {
+      return await this.listenEthToArb(requestData);
+    } else {
+      throw new Error(`不支持的链: ${requestData.chain}`);
+    }
+  }
+
+  async listenEthToArb(requestData) {
+    const { hash } = requestData;
+
+    try {
+      const l1Receipt = await this.ethereumProvider.getTransactionReceipt(hash);
+      if (!l1Receipt) {
+        return { status: "pending", message: "L1 交易未找到或未确认" };
+      }
+
+      const ether5L2Provider = new providers.JsonRpcProvider(
+        this.networks.arbitrum.rpc
+      );
+
+      const parentTxReceipt = new ParentTransactionReceipt(l1Receipt);
+      const parentToChildMessages =
+        await parentTxReceipt.getParentToChildMessages(ether5L2Provider);
+
+      if (parentToChildMessages.length === 0) {
+        return { status: "error", message: "未找到 retryable ticket 消息" };
+      }
+
+      const parentToChildMessage = parentToChildMessages[0];
+      const retryableTicketResult = await parentToChildMessage.waitForStatus();
+
+      if (
+        retryableTicketResult.status === ParentToChildMessageStatus.REDEEMED
+      ) {
+        const childTxReceipt = retryableTicketResult.childTxReceipt;
+        return {
+          status: "success",
+          claimed: true,
+          claimable: false,
+          l1TxHash: hash,
+          l2TxHash: childTxReceipt.transactionHash,
+          message: "跨链成功完成",
+        };
+      } else if (
+        retryableTicketResult.status ===
+        ParentToChildMessageStatus.FUNDS_DEPOSITED_ON_CHILD
+      ) {
+        return {
+          status: "pending_redeem",
+          claimed: false,
+          claimable: true,
+          l1TxHash: hash,
+          retryableTicketId: parentToChildMessage.retryableCreationId,
+          message: "需要手动执行 retryable ticket",
+        };
+      } else {
+        return {
+          status: "failed",
+          claimed: false,
+          claimable: false,
+          l1TxHash: hash,
+          message: `Retryable ticket 状态: ${retryableTicketResult.status}`,
+        };
+      }
+    } catch (error) {
+      console.error("监听 ETH 到 ARB 跨链失败:", error.message);
+      throw error;
+    }
+  }
+
+  async listenArbToEth(requestData) {
     const result = {
       claimed: false, // 是否已经被claim
       claimable: false, // 是否可以被claim

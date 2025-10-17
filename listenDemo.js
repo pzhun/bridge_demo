@@ -1,7 +1,7 @@
 const { ethers } = require("ethers");
 
-const BridgeService = require("../services/BridgeService");
-const UserWallet = require("../services/userWallet");
+const BridgeService = require("./services/BridgeService");
+const UserWallet = require("./services/userWallet");
 /**
  * 跨链桥演示脚本
  */
@@ -39,13 +39,14 @@ async function runDemo() {
     ethereum: networks.ethTestnet,
   });
 
-  const l2hash = "0x8dac0859074feb0398bdfb452e702e2cc405d226cf2f022f9a23872aabbe61fb"
+  const l2hash =
+    "0x08175435746c990289ccb32b029d5217f457122a7074c906b9edccb90f3ebcbf";
 
   // const l2hash =
   //   "0x08175435746c990289ccb32b029d5217f457122a7074c906b9edccb90f3ebcbf";
   const bridgeResult = await bridgeService.listenBridgeResult({
     hash: l2hash,
-    chainId: networks.arbTestnet.chainId,
+    chain: "arbitrum",
     userAddress: wallet.address,
   });
 
