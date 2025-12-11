@@ -1,0 +1,266 @@
+{
+  "steps": [
+    {
+      "id": "deposit",
+      "action": "Confirm transaction in your wallet",
+      "description": "Depositing funds to the relayer to execute the swap for ETH",
+      "kind": "transaction",
+      "items": [
+        {
+          "status": "incomplete",
+          "data": {
+            "from": "0x565D4BA385Fc4e3c1B07CE078682c84719475e76",
+            "to": "0x4cec3461dd63f22554b7fa2abba5bbfe9e86ddfd",
+            "data": "0x73f6dded3fa46e0d9ee31f54ea21b011f87259957eaccac698e070f2e9c07a1c",
+            "value": "100000000000000",
+            "chainId": 421614,
+            "gas": "43395",
+            "maxFeePerGas": "22000000",
+            "maxPriorityFeePerGas": "0"
+          },
+          "check": {
+            "endpoint": "/intents/status?requestId=0x73f6dded3fa46e0d9ee31f54ea21b011f87259957eaccac698e070f2e9c07a1c",
+            "method": "GET"
+          }
+        }
+      ],
+      "requestId": "0x73f6dded3fa46e0d9ee31f54ea21b011f87259957eaccac698e070f2e9c07a1c",
+      "depositAddress": ""
+    }
+  ],
+  "fees": {
+    "gas": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "734382000000",
+      "amountFormatted": "0.000000734382",
+      "amountUsd": "0.002293",
+      "minimumAmount": "734382000000"
+    },
+    "relayer": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "20538103694426",
+      "amountFormatted": "0.000020538103694426",
+      "amountUsd": "0.064129",
+      "minimumAmount": "20538103694426"
+    },
+    "relayerGas": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "31509450219",
+      "amountFormatted": "0.000000031509450219",
+      "amountUsd": "0.000098",
+      "minimumAmount": "31509450219"
+    },
+    "relayerService": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "20506594244207",
+      "amountFormatted": "0.000020506594244207",
+      "amountUsd": "0.064030",
+      "minimumAmount": "20506594244207"
+    },
+    "app": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "0",
+      "amountFormatted": "0.0",
+      "amountUsd": "0",
+      "minimumAmount": "0"
+    },
+    "subsidized": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "0",
+      "amountFormatted": "0.0",
+      "amountUsd": "0",
+      "minimumAmount": "0"
+    }
+  },
+  "details": {
+    "operation": "swap",
+    "sender": "0x565D4BA385Fc4e3c1B07CE078682c84719475e76",
+    "recipient": "0x565D4BA385Fc4e3c1B07CE078682c84719475e76",
+    "currencyIn": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "100000000000000",
+      "amountFormatted": "0.0001",
+      "amountUsd": "0.312242",
+      "minimumAmount": "100000000000000"
+    },
+    "currencyOut": {
+      "currency": {
+        "chainId": 84532,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "79461896305574",
+      "amountFormatted": "0.000079461896305574",
+      "amountUsd": "0.248113",
+      "minimumAmount": "75727187179213"
+    },
+    "refundCurrency": {
+      "currency": {
+        "chainId": 421614,
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "metadata": {}
+      },
+      "amount": "100000000000000",
+      "amountFormatted": "0.0001",
+      "amountUsd": "0.312242",
+      "minimumAmount": "100000000000000"
+    },
+    "totalImpact": {
+      "usd": "-0.064129",
+      "percent": "-20.54"
+    },
+    "swapImpact": {
+      "usd": "0.000000",
+      "percent": "0.00"
+    },
+    "expandedPriceImpact": {
+      "swap": {
+        "usd": "-0.031224"
+      },
+      "execution": {
+        "usd": "-0.020098"
+      },
+      "relay": {
+        "usd": "-0.012806"
+      },
+      "app": {
+        "usd": "0"
+      }
+    },
+    "rate": "0.7946189630557399",
+    "slippageTolerance": {
+      "origin": {
+        "usd": "0.000000",
+        "value": "0",
+        "percent": "0.00"
+      },
+      "destination": {
+        "usd": "0.011636",
+        "value": "3734709126361",
+        "percent": "4.69"
+      }
+    },
+    "timeEstimate": 6,
+    "userBalance": "0",
+    "isFixedRate": true,
+    "route": {
+      "origin": {
+        "inputCurrency": {
+          "currency": {
+            "chainId": 421614,
+            "address": "0x0000000000000000000000000000000000000000",
+            "symbol": "ETH",
+            "name": "Ether",
+            "decimals": 18,
+            "metadata": {}
+          },
+          "amount": "100000000000000",
+          "amountFormatted": "0.0001",
+          "amountUsd": "0.312242",
+          "minimumAmount": "100000000000000"
+        },
+        "outputCurrency": {
+          "currency": {
+            "chainId": 421614,
+            "address": "0x0000000000000000000000000000000000000000",
+            "symbol": "ETH",
+            "name": "Ether",
+            "decimals": 18,
+            "metadata": {}
+          },
+          "amount": "100000000000000",
+          "amountFormatted": "0.0001",
+          "amountUsd": "0.312242",
+          "minimumAmount": "100000000000000"
+        },
+        "router": "relay"
+      },
+      "destination": {
+        "inputCurrency": {
+          "currency": {
+            "chainId": 84532,
+            "address": "0x0000000000000000000000000000000000000000",
+            "symbol": "ETH",
+            "name": "Ether",
+            "decimals": 18,
+            "metadata": {}
+          },
+          "amount": "79461896305574",
+          "amountFormatted": "0.000079461896305574",
+          "amountUsd": "0.248113",
+          "minimumAmount": "75727187179213"
+        },
+        "outputCurrency": {
+          "currency": {
+            "chainId": 84532,
+            "address": "0x0000000000000000000000000000000000000000",
+            "symbol": "ETH",
+            "name": "Ether",
+            "decimals": 18,
+            "metadata": {}
+          },
+          "amount": "79461896305574",
+          "amountFormatted": "0.000079461896305574",
+          "amountUsd": "0.248113",
+          "minimumAmount": "75727187179213"
+        },
+        "router": "relay"
+      }
+    }
+  }
+}

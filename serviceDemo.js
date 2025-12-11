@@ -31,19 +31,15 @@ async function main() {
   //   to_chain: "sepolia",
   //   amount: "0.0001",
   // };
-
   // const response = await axios.post(`${host}${quoteApi}`, order);
   // const quotes = response.data.quotes;
   // const quote = quotes[0];
   // const unsignedTx = quote.unsigned_tx;
-
   // const finalizedTx = await finalizeTransaction(
   //   unsignedTx,
   //   networks.arbTestnet
   // );
-
   // const signedTx = await wallet.signTransaction(finalizedTx);
-
   // const broadcastData = {
   //   bridge: "arbitrum bridge",
   //   type: "execute",
@@ -58,13 +54,10 @@ async function main() {
   // };
   // const broadcastTx = await axios.post(`${host}${executeApi}`, broadcastData);
   // const txHash = broadcastTx.data.tx_hash;
-
   // console.log(broadcastTx.data);
-
   // 交易详情demo
   // const txHash =
   //   "0xa9b9cc5c8699be8735b5895482ab189c92661be338c3b5169f4e20cecc96fca9";
-
   // const txDetail = await axios.get(`${host}${txDetailApi}`, {
   //   params: {
   //     user_address: wallet.address,
@@ -72,13 +65,11 @@ async function main() {
   //   },
   // });
   // const unsigned_claim_tx = txDetail.data.record.unsigned_tx;
-
   // const finalizedTx = await finalizeTransaction(
   //   unsigned_claim_tx,
   //   networks.ethTestnet
   // );
   // const signedTx = await wallet.signTransaction(finalizedTx);
-
   // const claimBroadcastData = {
   //   bridge: "arbitrum bridge",
   //   type: "claim",
@@ -88,7 +79,6 @@ async function main() {
   //   signed_tx: signedTx,
   //   from_hex: txHash,
   // };
-
   // const claimBroadcastTx = await axios.post(
   //   `${host}${executeApi}`,
   //   claimBroadcastData
