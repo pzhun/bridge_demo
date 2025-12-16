@@ -57,24 +57,24 @@ async function main() {
 
     console.log(transaction);
 
-    const unsignedTx = transaction.unsignedTx;
-    unsignedTx.from = userAddress;
-    unsignedTx.chainId = networks.arbTestnet.chainId;
+    // const unsignedTx = transaction.unsignedTx;
+    // unsignedTx.from = userAddress;
+    // unsignedTx.chainId = networks.arbTestnet.chainId;
 
-    const finalizedTx = await finalizeTransaction(
-      unsignedTx,
-      networks.arbTestnet
-    );
+    // const finalizedTx = await finalizeTransaction(
+    //   unsignedTx,
+    //   networks.arbTestnet
+    // );
 
-    console.log(finalizedTx);
-    const signedTx = await wallet.signTransaction(finalizedTx);
+    // console.log(finalizedTx);
+    // const signedTx = await wallet.signTransaction(finalizedTx);
 
-    const broadcastTx = await wallet.broadcastTransaction(
-      networks.arbTestnet.rpc,
-      signedTx
-    );
+    // const broadcastTx = await wallet.broadcastTransaction(
+    //   networks.arbTestnet.rpc,
+    //   signedTx
+    // );
 
-    console.log(broadcastTx);
+    // console.log(broadcastTx);
   } catch (error) {
     console.error("❌ 错误:", error.message);
     if (error.stack) {

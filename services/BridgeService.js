@@ -1,10 +1,12 @@
 const { networks } = require("../config/blockchain");
 const ArbNativeBridge = require("./arbNativeBridge");
 const RelayBridgeService = require("./RelayBridgeService");
+const AcrossBridgeService = require("./AcrossBridgeService");
 
 const bridges = {
   arb_native_bridge: "arb_native_bridge",
   relay_bridge: "relay_bridge",
+  across_bridge: "across_bridge",
 };
 
 /**
@@ -20,6 +22,9 @@ class BridgeService {
         break;
       case bridges.relay_bridge:
         this.bridgeService = new RelayBridgeService(networks);
+        break;
+      case bridges.across_bridge:
+        this.bridgeService = new AcrossBridgeService(networks);
         break;
       default:
         throw new Error("不支持的跨链桥");
