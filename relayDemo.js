@@ -49,6 +49,8 @@ const ethUsdc = {
   address: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
 };
 
+const bridgeService = new BridgeService("relay_bridge");
+
 // ----------------------
 
 const toToken = arbUsdc;
@@ -66,33 +68,48 @@ async function main() {
       amount: "0.3",
     };
 
-    const data = await axios.post(
-      `https://admin.fxwallet.in/api/swap/bridge/route/quote`,
-      requestData
-    );
-    const quotes = data.data.data.quotes;
-    const quote = quotes[0];
+    // const data = await axios.post(
+    //   `https://admin.fxwallet.in/api/swap/bridge/route/quote`,
+    //   requestData
+    // );
+    // const quotes = data.data.data.quotes;
+    // const quote = quotes[0];
 
-    console.log(JSON.stringify(quote, null, 2));
+    // console.log(JSON.stringify(quote, null, 2));
 
-    for (const tx of quote.unsigned_tx) {
-      const finalizedTx = await finalizeTransaction(tx, network);
-      const signedTx = await wallet.signTransaction(finalizedTx);
+    // for (const tx of quote.unsigned_tx) {
+    //   const finalizedTx = await finalizeTransaction(tx, network);
+    //   const signedTx = await wallet.signTransaction(finalizedTx);
 
-      const executeTx = await axios.post(`${host}${executeApi}`, {
-        bridge: "relay testnet bridge",
-        type: "execute",
-        user_address: userAddress,
-        from_chain: requestData.from_chain,
-        to_chain: requestData.to_chain,
-        from_token_address: requestData.from_token_address,
-        to_token_address: requestData.to_token_address,
-        extra_data: quote.extra_data,
-        signed_tx: signedTx,
-      });
+    //   const executeTx = await axios.post(`${host}${executeApi}`, {
+    //     bridge: "relay testnet bridge",
+    //     type: "execute",
+    //     user_address: userAddress,
+    //     from_chain: requestData.from_chain,
+    //     to_chain: requestData.to_chain,
+    //     from_token_address: requestData.from_token_address,
+    //     to_token_address: requestData.to_token_address,
+    //     extra_data: quote.extra_data,
+    //     signed_tx: signedTx,
+    //   });
 
-      console.log(executeTx);
-    }
+    //   console.log(executeTx);
+    // }
+
+    // const txHash =
+    //   "0x35c3ac6bc3faaa52beac68e0e3b1ee7afa2e868fb3fa8a8405e15f8dc467aa9a";
+    // const txDetail = await axios.get(`${host}${txDetailApi}`, {
+    //   params: {
+    //     user_address: userAddress,
+    //     hash: txHash,
+    //   },
+    // });
+    // console.log(txDetail.data);
+
+    const requestId =
+      "0x5fdecb58037fd4acb919c839f244255acde89c7ba35e0279c365e419ceb9dd57";
+    const txDetail = await bridgeService.listenBridgeResult({ requestId });
+    console.log(txDetail);
   } catch (error) {
     console.error("❌ 错误:", error.message);
     if (error.stack) {

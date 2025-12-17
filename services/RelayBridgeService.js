@@ -267,48 +267,22 @@ class RelayBridgeService {
    */
   async listenBridgeResult(requestData) {
     try {
-      const { hash, originChainId, destinationChainId } = requestData;
+      const { requestId } = requestData;
 
-      if (!hash) {
-        throw new Error("缺少交易 hash");
+      if (!requestId) {
+        throw new Error("缺少 requestId");
       }
 
-      // 根据 originChainId 找到对应的 provider
-      const originChainName = this.findChainNameByChainId(originChainId);
-      if (!originChainName || !this.providers[originChainName]) {
-        throw new Error(`未找到链 ID ${originChainId} 对应的 provider`);
-      }
+      const response = await axios.get(
+        `${this.relayQuoteUrl}/intents/status/v3`,
+        {
+          params: {
+            requestId: requestId,
+          },
+        }
+      );
 
-      const provider = this.providers[originChainName];
-      const receipt = await provider.getTransactionReceipt(hash);
-
-      if (!receipt) {
-        return {
-          status: "pending",
-          message: "交易未找到或未确认",
-          l1TxHash: hash,
-        };
-      }
-
-      // 检查交易状态
-      if (receipt.status === 1) {
-        // 交易成功，Relay 会自动处理跨链，可能需要等待一段时间
-        return {
-          status: "success",
-          claimed: true,
-          claimable: false,
-          l1TxHash: hash,
-          message: "跨链交易已成功提交，Relay 正在处理跨链",
-        };
-      } else {
-        return {
-          status: "failed",
-          claimed: false,
-          claimable: false,
-          l1TxHash: hash,
-          message: "交易失败",
-        };
-      }
+      return response.data;
     } catch (error) {
       console.error("监听 Relay 跨链结果失败:", error.message);
       throw error;
