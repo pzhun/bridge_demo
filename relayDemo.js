@@ -1,6 +1,13 @@
 const { ethers } = require("ethers");
 const BridgeService = require("./services/BridgeService");
 const UserWallet = require("./services/userWallet");
+const axios = require("axios");
+
+// const host = "http://127.0.0.1:14042";
+const host = "https://api.fxwallet.in";
+const quoteApi = "/bridge/quote";
+const executeApi = "/bridge/execute";
+const txDetailApi = "/bridge/record";
 
 // ------- 配置区 -------
 // 钱包私钥（测试用，千万不要把真实私钥提交到线上）
@@ -27,54 +34,65 @@ const wallet = new UserWallet(PRIVATE_KEY);
 const userAddress = wallet.address;
 const recipientAddress = wallet.address; // 接收者地址
 
+const baseUsdc = {
+  chain: "base_sepolia",
+  address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+};
+
+const arbUsdc = {
+  chain: "arb_sepolia",
+  address: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d",
+};
+
+const ethUsdc = {
+  chain: "sepolia",
+  address: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
+};
+
 // ----------------------
+
+const toToken = arbUsdc;
+const fromToken = baseUsdc;
+const network = networks.baseTestnet;
 
 async function main() {
   try {
-    console.log("🚀 开始 Relay 跨链桥演示...\n");
-
-    // 初始化 BridgeService
-    const bridgeService = new BridgeService("relay_bridge", networks);
-
-    // 1️⃣ 准备跨链请求数据
     const requestData = {
-      userAddress: userAddress,
-      originChainId: networks.arbTestnet.chainId, // arb sepolia
-      destinationChainId: networks.baseTestnet.chainId, // Base sepolia
-      srcToken: {
-        amount: "0.0001", // 转账 0.01 ETH
-        address: ethers.ZeroAddress, // 原生代币使用 ZeroAddress
-      },
-      destToken: {
-        address: ethers.ZeroAddress, // 目标链也是原生代币
-      },
+      user_address: "0x565d4ba385fc4e3c1b07ce078682c84719475e76",
+      from_chain: fromToken.chain,
+      from_token_address: fromToken.address,
+      to_token_address: toToken.address,
+      to_chain: toToken.chain,
+      amount: "0.3",
     };
 
-    console.log("1) 获取报价并创建交易...");
-    const transaction = await bridgeService.createBridgeTransaction(
+    const data = await axios.post(
+      `https://admin.fxwallet.in/api/swap/bridge/route/quote`,
       requestData
     );
+    const quotes = data.data.data.quotes;
+    const quote = quotes[0];
 
-    console.log(transaction);
+    console.log(JSON.stringify(quote, null, 2));
 
-    // const unsignedTx = transaction.unsignedTx;
-    // unsignedTx.from = userAddress;
-    // unsignedTx.chainId = networks.arbTestnet.chainId;
+    for (const tx of quote.unsigned_tx) {
+      const finalizedTx = await finalizeTransaction(tx, network);
+      const signedTx = await wallet.signTransaction(finalizedTx);
 
-    // const finalizedTx = await finalizeTransaction(
-    //   unsignedTx,
-    //   networks.arbTestnet
-    // );
+      const executeTx = await axios.post(`${host}${executeApi}`, {
+        bridge: "relay testnet bridge",
+        type: "execute",
+        user_address: userAddress,
+        from_chain: requestData.from_chain,
+        to_chain: requestData.to_chain,
+        from_token_address: requestData.from_token_address,
+        to_token_address: requestData.to_token_address,
+        extra_data: quote.extra_data,
+        signed_tx: signedTx,
+      });
 
-    // console.log(finalizedTx);
-    // const signedTx = await wallet.signTransaction(finalizedTx);
-
-    // const broadcastTx = await wallet.broadcastTransaction(
-    //   networks.arbTestnet.rpc,
-    //   signedTx
-    // );
-
-    // console.log(broadcastTx);
+      console.log(executeTx);
+    }
   } catch (error) {
     console.error("❌ 错误:", error.message);
     if (error.stack) {

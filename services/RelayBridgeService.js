@@ -34,28 +34,75 @@ class RelayBridgeService {
       // 获取报价
       const quote = await this.getQuote(requestData);
 
-      console.log(JSON.stringify(quote, null, 2));
+      const details = quote.details;
+      const { currencyIn, currencyOut } = details;
+      const fees = quote.fees || {};
 
-      const items = quote.steps[0].items;
+      // 构建 unsigned_tx 数组
+      const unsignedTx = [];
+      let bridgeAddress = null;
+      quote.steps.forEach((step) => {
+        step.items.forEach((item) => {
+          if (item.data) {
+            unsignedTx.push(item.data);
+          }
+        });
+      });
 
-      // 处理多个交易（Relay 可能返回多个交易需要依次执行）
-      const transactions = [];
-      for (const item of items) {
-        const tx = item.data;
-        const unsignedTx = {
-          to: tx.to,
-          data: tx.data,
-          value: tx.value ? BigInt(tx.value) : 0n,
-          gasLimit: tx.gas ? BigInt(tx.gas) : undefined,
+      // 获取链名称
+      const fromChainName = "";
+      const toChainName = "";
+
+      // 构建 from_token
+      const fromToken = {
+        name: currencyIn.name,
+        symbol: currencyIn.currency.symbol,
+        icon: currencyIn.currency.metadata?.logoURI,
+        address: currencyIn.currency.address,
+        chain: fromChainName,
+      };
+
+      // 构建 to_token
+      const toToken = {
+        name: currencyOut.name,
+        symbol: currencyOut.currency.symbol,
+        icon: currencyOut.currency.metadata?.logoURI,
+        address: currencyOut.currency.address,
+        chain: toChainName,
+      };
+
+      // 构建 fee_info
+      const feeInfo = {};
+      if (fees.relayer) {
+        const relayerCurrency = fees.relayer.currency;
+        feeInfo.relay_bridge = {
+          fee: fees.relayer.amountFormatted || "0",
+          fee_token: {
+            name: relayerCurrency.name,
+            symbol: relayerCurrency.symbol,
+            icon: relayerCurrency.metadata?.logoURI || null,
+            address: relayerCurrency.address,
+            chain: fromChainName,
+          },
         };
-
-        transactions.push(unsignedTx);
       }
 
+      // 构建结果对象
       const result = {
-        unsignedTx: transactions.length === 1 ? transactions[0] : transactions,
-        requestId: quote.steps[0].requestId,
-        feeInfo: quote.fees,
+        bridge_id: 2, // Relay bridge ID
+        bridge: "relay bridge",
+        bridge_address:
+          bridgeAddress || "0x0000000000000000000000000000000000000000",
+        bridge_icon: null,
+        amount: currencyIn.amountFormatted || "0",
+        to_amount: currencyOut.amountFormatted || "0",
+        lock_period: 0, // Relay 通常不需要锁定期
+        waiting_period: 0,
+        fee_info: feeInfo,
+        is_need_claim: false, // Relay 通常不需要手动 claim
+        from_token: fromToken,
+        to_token: toToken,
+        unsigned_tx: unsignedTx,
       };
 
       // 如果只有一个交易，直接返回；如果有多个，返回数组
@@ -116,8 +163,6 @@ class RelayBridgeService {
         useDepositAddress: false,
         useExternalLiquidity: false,
       };
-
-      console.log(JSON.stringify(quoteRequest, null, 2));
 
       const response = await axios.post(
         `${this.relayQuoteUrl}/quote`,
@@ -185,6 +230,35 @@ class RelayBridgeService {
       }
     }
     return null;
+  }
+
+  /**
+   * 根据 chainId 获取链名称（用于格式化输出）
+   */
+  getChainNameByChainId(chainId) {
+    // 常见的 chainId 映射
+    const chainIdMap = {
+      1: "ethereum",
+      11155111: "sepolia",
+      42161: "arbitrum",
+      421614: "arb_sepolia",
+      8453: "base",
+      84532: "base_sepolia",
+      56: "bsc",
+      97: "bsc_testnet",
+      137: "polygon",
+      80001: "polygon_mumbai",
+    };
+
+    // 先从 networks 配置中查找
+    const chainName = this.findChainNameByChainId(chainId);
+    if (chainName) {
+      // 将链名称转换为小写，并处理常见的命名格式
+      return chainName.toLowerCase().replace("testnet", "_testnet");
+    }
+
+    // 如果 networks 中没有，使用预定义的映射
+    return chainIdMap[chainId] || null;
   }
 
   /**
