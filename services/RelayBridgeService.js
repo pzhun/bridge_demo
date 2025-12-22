@@ -142,6 +142,25 @@ class RelayBridgeService {
     }
   }
 
+  getFee(options) {
+    const { fees, fromToken } = options;
+    const { relayerService, relayerGas, app } = fees;
+
+    const feeInfo = {
+      relay_bridge: {
+        service_fee: relayerService?.amountFormatted || "0",
+        gas_fee: relayerGas?.amountFormatted || "0",
+        fromToken,
+      },
+      fx_service_fee: {
+        fee: app?.amountFormatted || "0",
+        fromToken,
+      },
+    };
+
+    return feeInfo;
+  }
+
   /**
    * 从 Relay API 获取报价
    */

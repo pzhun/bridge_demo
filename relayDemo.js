@@ -3,6 +3,93 @@ const BridgeService = require("./services/BridgeService");
 const UserWallet = require("./services/userWallet");
 const axios = require("axios");
 
+const fees = {
+  gas: {
+    currency: {
+      chainId: 421614,
+      address: "0x0000000000000000000000000000000000000000",
+      symbol: "ETH",
+      name: "Ether",
+      decimals: 18,
+      metadata: {},
+    },
+    amount: "734382000000",
+    amountFormatted: "0.000000734382",
+    amountUsd: "0.002293",
+    minimumAmount: "734382000000",
+  },
+  relayer: {
+    currency: {
+      chainId: 421614,
+      address: "0x0000000000000000000000000000000000000000",
+      symbol: "ETH",
+      name: "Ether",
+      decimals: 18,
+      metadata: {},
+    },
+    amount: "20538103694426",
+    amountFormatted: "0.000020538103694426",
+    amountUsd: "0.064129",
+    minimumAmount: "20538103694426",
+  },
+  relayerGas: {
+    currency: {
+      chainId: 421614,
+      address: "0x0000000000000000000000000000000000000000",
+      symbol: "ETH",
+      name: "Ether",
+      decimals: 18,
+      metadata: {},
+    },
+    amount: "31509450219",
+    amountFormatted: "0.000000031509450219",
+    amountUsd: "0.000098",
+    minimumAmount: "31509450219",
+  },
+  relayerService: {
+    currency: {
+      chainId: 421614,
+      address: "0x0000000000000000000000000000000000000000",
+      symbol: "ETH",
+      name: "Ether",
+      decimals: 18,
+      metadata: {},
+    },
+    amount: "20506594244207",
+    amountFormatted: "0.000020506594244207",
+    amountUsd: "0.064030",
+    minimumAmount: "20506594244207",
+  },
+  app: {
+    currency: {
+      chainId: 421614,
+      address: "0x0000000000000000000000000000000000000000",
+      symbol: "ETH",
+      name: "Ether",
+      decimals: 18,
+      metadata: {},
+    },
+    amount: "0",
+    amountFormatted: "0.0",
+    amountUsd: "0",
+    minimumAmount: "0",
+  },
+  subsidized: {
+    currency: {
+      chainId: 421614,
+      address: "0x0000000000000000000000000000000000000000",
+      symbol: "ETH",
+      name: "Ether",
+      decimals: 18,
+      metadata: {},
+    },
+    amount: "0",
+    amountFormatted: "0.0",
+    amountUsd: "0",
+    minimumAmount: "0",
+  },
+};
+
 // const host = "http://127.0.0.1:14042";
 const host = "https://api.fxwallet.in";
 const quoteApi = "/bridge/quote";
@@ -68,6 +155,9 @@ async function main() {
       amount: "0.3",
     };
 
+    const fee = bridgeService.bridgeService.getFee({ fees, fromToken });
+    console.log(fee);
+
     // const data = await axios.post(
     //   `https://admin.fxwallet.in/api/swap/bridge/route/quote`,
     //   requestData
@@ -106,10 +196,10 @@ async function main() {
     // });
     // console.log(txDetail.data);
 
-    const requestId =
-      "0x5fdecb58037fd4acb919c839f244255acde89c7ba35e0279c365e419ceb9dd57";
-    const txDetail = await bridgeService.listenBridgeResult({ requestId });
-    console.log(txDetail);
+    // const requestId =
+    //   "0x5fdecb58037fd4acb919c839f244255acde89c7ba35e0279c365e419ceb9dd57";
+    // const txDetail = await bridgeService.listenBridgeResult({ requestId });
+    // console.log(txDetail);
   } catch (error) {
     console.error("❌ 错误:", error.message);
     if (error.stack) {
