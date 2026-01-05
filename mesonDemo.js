@@ -2,6 +2,7 @@ const { ethers } = require("ethers");
 const BridgeService = require("./services/BridgeService");
 const UserWallet = require("./services/userWallet");
 const axios = require("axios");
+const ERC20ABI = require("./config/erc20.json");
 
 // const host = "http://127.0.0.1:14042";
 const host = "https://api.fxwallet.in";
@@ -53,9 +54,19 @@ const bridgeService = new BridgeService("meson_bridge");
 
 // ----------------------
 
-const toToken = arbUsdc;
-const fromToken = ethUsdc;
-const network = networks.baseTestnet;
+const fromToken = arbUsdc;
+
+const toToken = ethUsdc;
+
+// 根据链名称获取对应的网络配置
+function getNetworkByChainName(chainName) {
+  const chainToNetwork = {
+    sepolia: networks.ethTestnet,
+    arb_sepolia: networks.arbTestnet,
+    base_sepolia: networks.baseTestnet,
+  };
+  return chainToNetwork[chainName] || networks.ethTestnet;
+}
 
 async function main() {
   try {
@@ -68,10 +79,60 @@ async function main() {
       amount: "1",
     };
 
-    const bridgeResult = await bridgeService.createBridgeTransaction(
+    const data = await axios.post(
+      `https://admin.fxwallet.in/api/swap/bridge/route/quote`,
       requestData
     );
-    console.log(bridgeResult);
+    const quotes = data.data.data.quotes;
+    console.log(quotes);
+    const quote = quotes[0];
+
+    const swapId = getSwapId(
+      quote.extra_data.encoded,
+      quote.extra_data.initiator
+    );
+
+    console.log(swapId);
+
+    // 根据 from_chain 获取正确的网络配置
+    const network = getNetworkByChainName(requestData.from_chain);
+    console.log(
+      `使用网络: ${requestData.from_chain}, chainId: ${network.chainId}`
+    );
+
+    for (const tx of quote.unsigned_tx) {
+      tx.from = userAddress;
+      await approve(fromToken, tx.to, network);
+
+      const finalizedTx = await finalizeTransaction(tx, network);
+      const signedTx = await wallet.signTransaction(finalizedTx);
+      console.log(signedTx);
+
+      //   const url = `https://relayer.meson.fi/api/v1/swap/${quote.extra_data.encoded}`;
+
+      //   console.log(url);
+
+      //   const bridgeResponse = await axios.post(url, {
+      //     fromAddress: userAddress,
+      //     recipient: recipientAddress,
+      //     signature: signedTx,
+      //   });
+
+      //   console.log(bridgeResponse);
+
+      const executeTx = await axios.post(`${host}${executeApi}`, {
+        bridge: "relay testnet bridge",
+        user_address: userAddress,
+        from_chain: requestData.from_chain,
+        to_chain: requestData.to_chain,
+        from_token_address: requestData.from_token_address,
+        to_token_address: requestData.to_token_address,
+        extra_data: quote.extra_data,
+        signed_tx: signedTx,
+      });
+
+      console.log(executeTx);
+    }
   } catch (error) {
     console.error("❌ 错误:", error.message);
     if (error.stack) {
@@ -80,15 +141,57 @@ async function main() {
   }
 }
 
+function getSwapId(encoded, initiator) {
+  const packed = ethers.solidityPacked(
+    ["bytes32", "address"],
+    [encoded, initiator]
+  );
+  return ethers.keccak256(packed);
+}
+
+// 查询是否approve
+async function approve(fromToken, contractAddress, network) {
+  const provider = new ethers.JsonRpcProvider(network.rpc);
+  const erc20Contract = new ethers.Contract(
+    fromToken.address,
+    ERC20ABI,
+    provider
+  );
+
+  const allowance = await erc20Contract.allowance(userAddress, contractAddress);
+  if (allowance <= 0) {
+    const data = erc20Contract.interface.encodeFunctionData("approve", [
+      contractAddress,
+      ethers.MaxUint256,
+    ]);
+    const tx = {
+      from: userAddress,
+      to: fromToken.address,
+      data: data,
+    };
+    const unsignedTx = await finalizeTransaction(tx, network);
+    const signedTx = await wallet.signTransaction(unsignedTx);
+    const hash = await wallet.broadcastTransaction(network.rpc, signedTx);
+    console.log(hash);
+  }
+}
+
 async function finalizeTransaction(unsignedTx, network) {
   const provider = new ethers.JsonRpcProvider(network.rpc);
   const nonce = await provider.getTransactionCount(unsignedTx.from);
-  const gasLimit = await provider.estimateGas(unsignedTx);
+
+  // 确保 chainId 正确设置
+  const txWithChainId = {
+    ...unsignedTx,
+    chainId: network.chainId,
+  };
+
+  const gasLimit = await provider.estimateGas(txWithChainId);
   const gasPrice = await provider.getFeeData();
   const maxFeePerGas = gasPrice.maxFeePerGas;
   const maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
   return {
-    ...unsignedTx,
+    ...txWithChainId,
     type: 2, // EIP-1559
     nonce,
     gasLimit,
