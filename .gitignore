@@ -108,3 +108,4 @@ private-keys/
 # 测试文件
 test-results/
 coverage/
+local/

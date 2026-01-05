@@ -1,128 +1,185 @@
 const { ethers } = require("ethers");
 const BridgeService = require("./services/BridgeService");
 const UserWallet = require("./services/userWallet");
+const axios = require("axios");
+const ERC20ABI = require("./config/erc20.json");
 
-// ====== 配置区域 ======
-const PRIVATE_KEY = "0x你的私钥"; // 你的钱包私钥
+// const host = "http://127.0.0.1:14042";
+const host = "https://api.fxwallet.in";
+const quoteApi = "/bridge/quote";
+const executeApi = "/bridge/execute";
+const txDetailApi = "/bridge/record";
+
+// ------- 配置区 -------
+// 钱包私钥（测试用，千万不要把真实私钥提交到线上）
+const PRIVATE_KEY =
+  "0xcb28292e69f20f36a8eff9f848c935b44fa9d84f2de1f4f29990e2affb5f91c8";
+
 const wallet = new UserWallet(PRIVATE_KEY);
+const userAddress = wallet.address;
+const recipientAddress = wallet.address; // 接收者地址
 
 // 网络配置
 const networks = {
+  arbTestnet: {
+    chainId: 421614,
+    rpc: "https://arbitrum-sepolia.infura.io/v3/f0443451e6034c60830c9ca206431876",
+  },
   ethTestnet: {
-    chainId: 11155111, // Sepolia
-    rpc: "https://rpc.ankr.com/eth_sepolia",
+    chainId: 11155111,
+    rpc: "https://sepolia.infura.io/v3/f0443451e6034c60830c9ca206431876",
   },
-  polygonAmoy: {
-    chainId: 80002, // Polygon Amoy
-    rpc: "https://rpc.ankr.com/polygon_amoy",
-  },
-  // 可以根据需要添加更多网络
-  arbitrum: {
-    chainId: 42161,
-    rpc: "https://rpc.ankr.com/arbitrum",
-  },
-  base: {
-    chainId: 8453,
-    rpc: "https://rpc.ankr.com/base",
+  baseTestnet: {
+    chainId: 84532,
+    rpc: "https://base-sepolia.infura.io/v3/f0443451e6034c60830c9ca206431876",
   },
 };
 
-// 跨链参数（例子：Sepolia → Polygon Amoy USDC）
-const INTEGRATOR_ID = "0x8888"; // 自定义 or 申请的 integratorId
+const baseUsdc = {
+  chain: "base_sepolia",
+  address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+};
 
+const arbUsdc = {
+  chain: "arb_sepolia",
+  address: "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d",
+};
+
+const ethUsdc = {
+  chain: "sepolia",
+  address: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
+};
+
+// 根据链名称获取对应的网络配置
+function getNetworkByChainName(chainName) {
+  const chainToNetwork = {
+    sepolia: networks.ethTestnet,
+    arb_sepolia: networks.arbTestnet,
+    base_sepolia: networks.baseTestnet,
+  };
+  return chainToNetwork[chainName] || networks.ethTestnet;
+}
 // ======================
+
+const fromToken = arbUsdc;
+
+const toToken = ethUsdc;
+
+const network = networks.arbTestnet;
+
+const bridgeService = new BridgeService("across_bridge");
 
 async function main() {
   try {
-    console.log("🚀 开始 Across 跨链桥演示...\n");
-
-    // 初始化 Across 桥服务
-    const bridgeService = new BridgeService("across_bridge", networks);
-
-    // 准备跨链请求数据
-    // 方式1: 使用带小数点的金额（需要提供 decimals）
     const requestData = {
-      userAddress: wallet.address,
-      originChainId: 11155111, // Sepolia
-      destinationChainId: 80002, // Polygon Amoy
-      srcToken: {
-        address: "0x7ea2be2df7ba6e54b1aA503394Fb2c47cC1c4f84", // USDC sepolia
-        amount: "1.0", // 1 USDC（会自动转换为最小单位）
-        decimals: 6, // USDC 有 6 位小数
-      },
-      destToken: {
-        address: "0xA8ce8aee21BC2A48a5EF670afCc9274C7CdE44af", // USDC Amoy
-      },
-      integratorId: INTEGRATOR_ID,
-      feeRefundAddress: wallet.address, // 可选：手续费退款地址
+      user_address: "0x565d4ba385fc4e3c1b07ce078682c84719475e76",
+      from_chain: fromToken.chain,
+      from_token_address: fromToken.address,
+      to_token_address: toToken.address,
+      to_chain: toToken.chain,
+      amount: "1",
+      bridge: "across testnet bridge",
     };
 
-    // 方式2: 直接使用最小单位（不需要 decimals）
-    // const requestData = {
-    //   userAddress: wallet.address,
-    //   originChainId: 11155111,
-    //   destinationChainId: 80002,
-    //   srcToken: {
-    //     address: "0x7ea2be2df7ba6e54b1aA503394Fb2c47cC1c4f84",
-    //     amount: "1000000", // 1 USDC = 1000000 (6 decimals)
-    //   },
-    //   destToken: {
-    //     address: "0xA8ce8aee21BC2A48a5EF670afCc9274C7CdE44af",
-    //   },
-    //   integratorId: INTEGRATOR_ID,
-    // };
+    console.log(requestData);
 
-    console.log("1) 获取 Across 报价并创建交易...");
-    const transaction = await bridgeService.createBridgeTransaction(requestData);
-
-    console.log("✅ 交易已创建:");
-    console.log(`  To: ${transaction.to}`);
-    console.log(`  Value: ${ethers.formatEther(transaction.value || 0n)} ETH`);
-    console.log(`  Gas Limit: ${transaction.gasLimit?.toString()}`);
-    console.log(`  Chain ID: ${transaction.chainId}\n`);
-
-    // 2️⃣ 签名并发送交易
-    console.log("2) 签名并发送交易...");
-    const signedTx = await wallet.signTransaction(transaction);
-
-    // 根据 chainId 找到对应的 RPC URL
-    const chainName = Object.keys(networks).find(
-      (name) => networks[name].chainId === transaction.chainId
+    const data = await axios.post(
+      `https://admin.fxwallet.in/api/swap/bridge/route/quote`,
+      requestData
     );
-    const providerUrl = networks[chainName].rpc;
 
-    const response = await wallet.broadcastTransaction(providerUrl, signedTx);
+    console.log(data);
+    const quotes = data.data.data.quotes;
+    const quote = quotes[0];
 
-    console.log(`✅ 已发送，hash: ${response.hash}`);
+    // 根据 from_chain 获取正确的网络配置
+    const network = getNetworkByChainName(requestData.from_chain);
+    console.log(
+      `使用网络: ${requestData.from_chain}, chainId: ${network.chainId}`
+    );
 
-    // 等待交易确认
-    const provider = new ethers.JsonRpcProvider(providerUrl);
-    const receipt = await provider.waitForTransaction(response.hash);
+    for (const tx of quote.unsigned_tx) {
+      tx.from = userAddress;
+      await approve(fromToken, tx.to, network);
 
-    console.log(`✅ 已上链确认，区块号: ${receipt.blockNumber}`);
-    console.log(`✅ 跨链成功提交！Tx Hash: ${receipt.hash}\n`);
+      console.log(tx);
 
-    // 3️⃣ 监听跨链结果
-    console.log("3) 监听跨链结果...");
-    const listenRequestData = {
-      hash: receipt.hash,
-      originChainId: requestData.originChainId,
-      destinationChainId: requestData.destinationChainId,
-    };
+      const finalizedTx = await finalizeTransaction(tx, network);
+      const signedTx = await wallet.signTransaction(finalizedTx);
+      console.log(signedTx);
 
-    // 等待一段时间后查询结果
-    console.log("等待 10 秒后查询跨链状态...");
-    await new Promise((resolve) => setTimeout(resolve, 10000));
+      // const executeTx = await axios.post(`${host}${executeApi}`, {
+      //   bridge: "relay testnet bridge",
+      //   user_address: userAddress,
+      //   from_chain: requestData.from_chain,
+      //   to_chain: requestData.to_chain,
+      //   from_token_address: requestData.from_token_address,
+      //   to_token_address: requestData.to_token_address,
+      //   extra_data: quote.extra_data,
+      //   signed_tx: signedTx,
+      // });
 
-    const result = await bridgeService.listenBridgeResult(listenRequestData);
-    console.log("跨链状态:", result);
-
-    console.log("\n✅ Across 跨链桥演示完成！");
+      // console.log(executeTx);
+    }
   } catch (error) {
     console.error("❌ 错误:", error.message);
     if (error.stack) {
       console.error(error.stack);
     }
+  }
+
+  // 查询是否approve
+  async function approve(fromToken, contractAddress, network) {
+    const provider = new ethers.JsonRpcProvider(network.rpc);
+    const erc20Contract = new ethers.Contract(
+      fromToken.address,
+      ERC20ABI,
+      provider
+    );
+
+    const allowance = await erc20Contract.allowance(
+      userAddress,
+      contractAddress
+    );
+    if (allowance <= 0) {
+      const data = erc20Contract.interface.encodeFunctionData("approve", [
+        contractAddress,
+        ethers.MaxUint256,
+      ]);
+      const tx = {
+        from: userAddress,
+        to: fromToken.address,
+        data: data,
+      };
+      const unsignedTx = await finalizeTransaction(tx, network);
+      const signedTx = await wallet.signTransaction(unsignedTx);
+      const hash = await wallet.broadcastTransaction(network.rpc, signedTx);
+      console.log(hash);
+    }
+  }
+
+  async function finalizeTransaction(unsignedTx, network) {
+    const provider = new ethers.JsonRpcProvider(network.rpc);
+    const nonce = await provider.getTransactionCount(unsignedTx.from);
+
+    // 确保 chainId 正确设置
+    const txWithChainId = {
+      ...unsignedTx,
+      chainId: network.chainId,
+    };
+
+    const gasLimit = await provider.estimateGas(txWithChainId);
+    const gasPrice = await provider.getFeeData();
+    const maxFeePerGas = gasPrice.maxFeePerGas;
+    const maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
+    return {
+      ...txWithChainId,
+      type: 2, // EIP-1559
+      nonce,
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    };
   }
 }
 
@@ -132,4 +189,3 @@ if (require.main === module) {
 }
 
 module.exports = { main };
-
