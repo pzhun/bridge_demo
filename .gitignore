@@ -109,3 +109,5 @@ private-keys/
 test-results/
 coverage/
 local/
+
+config
