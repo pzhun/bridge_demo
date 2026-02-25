@@ -1,18 +1,16 @@
 const { ethers } = require("ethers");
 const UserWallet = require("./services/userWallet");
 const config = require("./config/config");
+const ERC20ABI = require("./config/erc20.json");
 
-// ---------- USDT0 配置 (Unichain -> Arbitrum) ----------
-// 参考: https://docs.usdt0.to/technical-documentation/deployments
-const UNICHAIN_USDT0_TOKEN = "0x9151434b16b9763660705744891fA906F660EcC5";
-const UNICHAIN_OFT = "0xc07bE8994D035631c36fb4a89C918CeFB2f03EC3";
+
 // ------- 配置区 -------
 const PRIVATE_KEY = config.wallets.gasPayer.privateKey;
 
 const networks = {
   unichain: {
     chainId: 130,
-    rpc: "https://mainnet.unichain.org",
+    rpc: "https://unichain-mainnet.infura.io/v3/f0443451e6034c60830c9ca206431876",
   },
   arbitrum: {
     chainId: 42161,
@@ -22,16 +20,23 @@ const networks = {
 
 const wallet = new UserWallet(PRIVATE_KEY);
 const userAddress = wallet.address;
-const recipientAddress = wallet.address;
+
+const OFT_ABI = [
+  'function quoteOFT(tuple(uint32,bytes32,uint256,uint256,bytes,bytes,bytes)) view returns (tuple(uint256,uint256), tuple(int256,string)[], tuple(uint256,uint256))',
+  'function quoteSend(tuple(uint32,bytes32,uint256,uint256,bytes,bytes,bytes), bool) view returns (tuple(uint256,uint256))',
+  'function send(tuple(uint32,bytes32,uint256,uint256,bytes,bytes,bytes), tuple(uint256,uint256), address) payable returns (tuple(bytes32,uint64,tuple(uint256,uint256)), tuple(uint256,uint256))',
+];
 
 const fromToken = {
   chain: "unichain",
-  address: UNICHAIN_USDT0_TOKEN,
-  oftAddress: UNICHAIN_OFT,
+  address: "0x9151434b16b9763660705744891fA906F660EcC5",
+  oftAddress: "0xc07bE8994D035631c36fb4a89C918CeFB2f03EC3",
+  lzId: 30320
 };
 const toToken = {
   chain: "arbitrum",
   address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // Arbitrum USDT0
+  lzId: 30110
 };
 
 const bridgeName = "usdt0 (LayerZero OFT)";
@@ -51,7 +56,11 @@ async function main() {
     amount: "1",
     bridge: bridgeName,
   };
-  console.log(requestData);
+
+  const network = getNetworkByChainName(requestData.from_chain);
+
+  // approve
+  await approve(fromToken, fromToken.oftAddress, network);
 
 }
 
