@@ -9,10 +9,11 @@
   },
   "dependencies": {
     "@arbitrum/sdk": "^v4.0.1",
+    "@eth-optimism/sdk": "^3.3.3",
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "ethers5": "npm:ethers@^5.8.0",
-    "ethers": "^6.15.0",
+    "ethers": "^5.8.0",
+    "ethers6": "npm:ethers@^6.15.0",
     "web3": "^4.3.0"
   },
   "keywords": [
