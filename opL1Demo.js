@@ -1,5 +1,6 @@
 const { CrossChainMessenger, MessageStatus } = require("@eth-optimism/sdk");
 const { ethers } = require("ethers");
+const axios = require("axios");
 
 const config = require("./config/config");
 
@@ -130,12 +131,62 @@ async function sendL1ToL2Tx(amount) {
   return hash;
 }
 
+const host = "https://api.fxwallet.in";
+const quoteApi = "/bridge/quote";
+const executeApi = "/bridge/execute";
+const txDetailApi = "/bridge/record";
+
+async function sendBridgeTx() {
+  const bridgeName = "base testnet native bridge";
+  const requestData = {
+    user_address: userAddress,
+    from_chain: "sepolia",
+    to_chain: "base_sepolia",
+    amount: "0.001",
+    bridge: bridgeName,
+  };
+  const response = await axios.post(`${host}${quoteApi}`, requestData);
+  const quotes = response.data.quotes;
+  const quote = quotes[0];
+  const unsignedTx = quote.unsigned_tx[0];
+  unsignedTx.from = userAddress;
+
+  const finalizedTx = await finalizeTransaction(unsignedTx, networks.sepolia);
+  const signedTx = await wallet.signTransaction(finalizedTx);
+
+  const executeTx = await axios.post(`${host}${executeApi}`, {
+    bridge: bridgeName,
+    user_address: userAddress,
+    from_chain: requestData.from_chain,
+    to_chain: requestData.to_chain,
+    extra_data: quote.extra_data,
+    signed_tx: signedTx,
+  });
+  console.log(executeTx);
+}
+
+async function listenBridgeResult(hash) {
+  const txDetail = await axios.get(`${host}${txDetailApi}`, {
+    params: {
+      user_address: userAddress,
+      hash: hash,
+    },
+  });
+  console.log(txDetail.data);
+}
+
 async function main() {
   // const hash = await sendL1ToL2Tx('0.001');
   // console.log(hash);
   // const hash = '0xf12ac11725031ea6af9a9ef09b882325d8c67c20d16a3630a700742591cb1dae';
   // const result = await waitForDeposit(hash);
   // console.log(result);
+  //   const hash = await sendBridgeTx();
+  //   console.log(hash);
+  //   const hash =
+  //     "0x0257932b845912148040c935107b445b03a0b8cae77926cf1a92278b73d962a7";
+  //   const result = await listenBridgeResult(hash);
+  //   console.log(result);
 }
 
 main();
